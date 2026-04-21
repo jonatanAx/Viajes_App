@@ -1,54 +1,65 @@
-:root{
-    --color-primario:#11120D;
-    --color-dos:#565449;
-    --color-tres:#D8CFBC;
-    --color-blanco:#F1F3F5;
-    --color-negro:#000000;
+/* Variables de color */
+:root {
+    --color-primario: #11120D;
+    --color-dos: #565449;
+    --color-tres: #D8CFBC;
+    --color-blanco: #F1F3F5;
+    --color-negro: #000000;
 }
 
-body{
+body {
     background-color: var(--color-tres);
 }
 
-
-.mi-navbar{
-    background-color: var(--color-dos)  !important;
+/* Navbar Personalizada */
+.mi-navbar {
+    background-color: var(--color-dos) !important;
 }
 
 .navbar-brand, .nav-link {
     color: var(--color-blanco) !important;
-    /* Sombra de texto: horizontal, vertical, desenfoque, color */
     text-shadow: 2px 2px 1px rgba(0, 0, 0, 0.5); 
 }
 
+/* Botones */
 .btn-dark {
-    background-color: var(--color-blanco) !important;
+    background-color: var(--color-primario) !important; /* Volví al primario para que contraste */
+    color: var(--color-blanco) !important;
     border: none;
     transition: 0.3s;
 }
 
-.bg-dark{
+.btn-dark:hover {
+    background-color: var(--color-dos) !important;
+    transform: scale(1.02);
+}
+
+/* Clases de fondo y texto */
+.bg-dark {
     background-color: var(--color-dos) !important;
 }
 
-.text-secondary{
-    color: var(--color-blanco)  !important;
-     text-shadow: 2px 2px 1px rgba(0, 0, 0, 0.5);
-}
-
-.col-md-12{
-    color:var(--color-blanco) !important;
+.text-secondary {
+    color: var(--color-blanco) !important;
     text-shadow: 2px 2px 1px rgba(0, 0, 0, 0.5);
 }
 
+/* Configuración de Mapas (IMPORTANTE) */
+#map, #mapaRecorrido {
+    height: 450px !important;
+    width: 100%;
+    border-radius: 15px;
+    z-index: 1;
+    border: 2px solid var(--color-dos);
+}
+
+.leaflet-container {
+    height: 100%;
+    width: 100%;
+}
+
+/* Footer */
 footer p {
     text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
     font-size: 0.9rem;
-}
-
-#map {
-    height: 500px !important; /* Altura fija para que no salga gris */
-    width: 100%;
-    border-radius: 15px;
-    z-index: 1; /* Para que no se encime con el navbar */
 }
