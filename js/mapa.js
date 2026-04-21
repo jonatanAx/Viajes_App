@@ -1,24 +1,16 @@
-// Asegúrate de usar nombres diferentes para no confundir a la librería
+// Configuración de Supabase
 const SB_URL = 'https://llpofkbyacuivbkfxfpq.supabase.co'; 
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxscG9ma2J5YWN1aXZia2Z4ZnBxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3MzI2MjgsImV4cCI6MjA5MjMwODYyOH0.ScPCtYjV2J_QSJtlLHQHY1JqRSYuDRFxm1krLeNOukc'; 
 
 const supabaseClient = supabase.createClient(SB_URL, SB_KEY);
 
-// 1. Inicializar el mapa
+// 1. Inicializar el mapa del Modal
 var map = L.map('map').setView([13.4833, -88.1833], 13);
-
 L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+    attribution: '&copy; CARTO'
 }).addTo(map);
 
-// Fuerza al mapa a dibujarse bien apenas cargue la página
-window.onload = function() {
-    setTimeout(function(){ 
-        map.invalidateSize(); 
-    }, 500);
-};
-
-var markerOrigen, markerDestino, motoMarker;
+var markerOrigen, markerDestino;
 var paso = 1; 
 
 // Iconos personalizados
@@ -29,32 +21,28 @@ var redIcon = new L.Icon({
     iconAnchor: [12, 41]
 });
 
-var iconoCarrito = L.divIcon({
-    html: '<img src="https://cdn-icons-png.flaticon.com/512/3082/3082103.png" style="width: 35px; height: 35px;">',
-    className: 'carrito-original',
-    iconSize: [35, 35],
-    iconAnchor: [17, 17]
-});
+// Función para setear si es Origen o Destino desde los botones
+function setPaso(n) {
+    paso = n;
+}
 
-// 2. Lógica de clics para direcciones
+// 2. Lógica de clics en el Modal
 map.on('click', async function (e) {
     var lat = e.latlng.lat.toFixed(5);
     var lng = e.latlng.lng.toFixed(5);
     
     if (paso === 1) {
-        document.getElementById('origen').value = "Buscando dirección...";
+        document.getElementById('origen').value = "Buscando...";
         if (markerOrigen) map.removeLayer(markerOrigen);
         markerOrigen = L.marker([lat, lng]).addTo(map).bindPopup("Recogida").openPopup();
         const direccion = await obtenerDireccion(lat, lng);
         document.getElementById('origen').value = direccion;
-        paso = 2;
     } else {
-        document.getElementById('destino').value = "Buscando dirección...";
+        document.getElementById('destino').value = "Buscando...";
         if (markerDestino) map.removeLayer(markerDestino);
         markerDestino = L.marker([lat, lng], {icon: redIcon}).addTo(map).bindPopup("Destino").openPopup();
         const direccion = await obtenerDireccion(lat, lng);
         document.getElementById('destino').value = direccion;
-        paso = 1;
     }
 });
 
@@ -68,44 +56,72 @@ async function obtenerDireccion(lat, lng) {
     }
 }
 
-// 3. Función de Animación (CORREGIDA PARA QUE SE MUEVA)
-function animarTrayectoria(inicio, fin, esDestino = false) {
-    if (motoMarker) map.removeLayer(motoMarker);
-    
-    // Aseguramos que inicio sea un array [lat, lng]
-    var startCoords = Array.isArray(inicio) ? inicio : [inicio.lat, inicio.lng];
-    var endCoords = Array.isArray(fin) ? fin : [fin.lat, fin.lng];
+// 3. Función para mostrar el mapa de recorrido final
+// Variable global para el marcador que se va a mover
+var marcadorMovil = null;
 
-    motoMarker = L.marker(startCoords, {icon: iconoCarrito}).addTo(map);
-    
-    var pasos = 100; 
-    var i = 0;
+async function mostrarRecorrido(lat1, lon1, lat2, lon2, costo) {
+    // 1. Mostrar el contenedor primero
+    document.getElementById('seccionFormulario').classList.add('d-none');
+    const contenedor = document.getElementById('contenedorRecorrido');
+    contenedor.classList.remove('d-none');
+    document.getElementById('resumenCosto').innerText = costo;
 
-    var intervalo = setInterval(function() {
-        i++;
-        var lat = startCoords[0] + (endCoords[0] - startCoords[0]) * (i / pasos);
-        var lng = startCoords[1] + (endCoords[1] - startCoords[1]) * (i / pasos);
+    // 2. Inicializar el mapa (con un pequeño delay para que el DOM se actualice)
+    setTimeout(() => {
+        const mapRecorrido = L.map('mapaRecorrido').setView([lat1, lon1], 14);
         
-        motoMarker.setLatLng([lat, lng]);
-        map.panTo([lat, lng]); 
+        // Forzamos a Leaflet a recalcular el tamaño para que no salga gris/blanco
+        mapRecorrido.invalidateSize();
 
-        if (i >= pasos) {
-            clearInterval(intervalo);
-            if (!esDestino) {
-                alert("¡Jonatan ha llegado al punto de recogida!");
-                // Extraer coordenadas para la siguiente fase
-                const proximoDestino = [markerDestino.getLatLng().lat, markerDestino.getLatLng().lng];
-                animarTrayectoria(endCoords, proximoDestino, true);
-            } else {
-                alert("¡Llegamos al destino!");
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; CARTO'
+        }).addTo(mapRecorrido);
+
+        // 3. Configurar la ruta
+        const controlRuta = L.Routing.control({
+            waypoints: [
+                L.latLng(lat1, lon1),
+                L.latLng(lat2, lon2)
+            ],
+            lineOptions: {
+                styles: [{ color: '#3388ff', opacity: 0.7, weight: 6 }]
+            },
+            addWaypoints: false,
+            draggableWaypoints: false,
+            createMarker: function(i, wp) {
+                return L.marker(wp.latLng, { 
+                    icon: i === 0 ? new L.Icon.Default() : redIcon 
+                }).bindPopup(i === 0 ? "Origen" : "Destino");
             }
-        }
-    }, 40); 
+        }).addTo(mapRecorrido);
+
+        // 4. Animación del "dispositivo" siguiendo la calle
+        controlRuta.on('routesfound', function(e) {
+            const rutaPoints = e.routes[0].coordinates;
+            const movil = L.marker([lat1, lon1], { icon: iconoCarrito }).addTo(mapRecorrido);
+            
+            let index = 0;
+            function animar() {
+                if (index < rutaPoints.length) {
+                    movil.setLatLng(rutaPoints[index]);
+                    index++;
+                    setTimeout(animar, 40); // Velocidad de movimiento
+                }
+            }
+            animar();
+        });
+    }, 200); // El delay de 200ms es clave para que el mapa cargue bien
 }
 
-// 4. Manejo del Formulario (CORREGIDO PARA ENVIAR COORDENADAS BIEN)
+// 4. Manejo del Formulario (Guardado + Cambio de Vista)
 document.getElementById('viajeForm').addEventListener('submit', async function(event) {
     event.preventDefault();
+
+    if (!markerOrigen || !markerDestino) {
+        alert("Por favor selecciona origen y destino en el mapa.");
+        return;
+    }
 
     const nombre = document.querySelector('input[placeholder="Ej. Jonatan"]').value;
     const origenTexto = document.getElementById('origen').value;
@@ -124,13 +140,20 @@ document.getElementById('viajeForm').addEventListener('submit', async function(e
     if (error) {
         alert("Error al guardar: " + error.message);
     } else {
-        alert(`¡Confirmado ${nombre}! El motorista va en camino.`);
-        
-        // Coordenadas de inicio (ej. tu ubicación actual)
-        const misCoordsActuales = [13.4812, -88.1775]; 
-        // Coordenadas de recogida sacadas del marcador
-        const coordsRecogida = [markerOrigen.getLatLng().lat, markerOrigen.getLatLng().lng];
-        
-        animarTrayectoria(misCoordsActuales, coordsRecogida);
+        // Obtenemos coordenadas para el mapa de recorrido
+        const latO = markerOrigen.getLatLng().lat;
+        const lonO = markerOrigen.getLatLng().lng;
+        const latD = markerDestino.getLatLng().lat;
+        const lonD = markerDestino.getLatLng().lng;
+
+        // ¡Mágia! Cambiamos la vista al mapa de recorrido
+        mostrarRecorrido(latO, lonO, latD, lonD, costoViaje);
     }
+});
+
+// Refrescar mapa del modal al abrirlo
+document.getElementById('mapaModal').addEventListener('shown.bs.modal', function () {
+    setTimeout(function() {
+        map.invalidateSize();
+    }, 100);
 });
